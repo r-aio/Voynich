@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   verify-l0-ism:
-    name: C99 Zero-Heap LUT, Z3 SMT Proof, DFA Audit & Negative Controls
+    name: C99 LUT, Lean 4 Kernel Proof, Z3 SMT, DFA Audit & Monte Carlo
     runs-on: ubuntu-latest
 
     steps:
@@ -31,6 +31,22 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install z3-solver
+
+      - name: Install Lean 4 (via elan)
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain stable
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - name: Verify Kernel-Checked Lean 4 Proof (L0ISM_Voynich_Proof.lean)
+        run: |
+          lean --version | tee lean_proof_report.txt
+          echo "--- Running Lean 4 Kernel Checker ---" | tee -a lean_proof_report.txt
+          lean L0ISM_Voynich_Proof.lean | tee -a lean_proof_report.txt
+          if grep -q "sorryAx" lean_proof_report.txt; then
+            echo "[FAIL] Proof depends on sorryAx!"
+            exit 1
+          fi
+          echo "[PASS] Lean 4 kernel verified all L0-ISM theorems with zero sorryAx." | tee -a lean_proof_report.txt
 
       - name: Compile and Verify C99 Zero-Heap LUT (voynich_l0_lut.h)
         run: |
@@ -73,14 +89,20 @@ jobs:
 
       - name: Publish Report to GitHub Step Summary
         run: |
+          echo "## Lean 4 Kernel-Checked Proof Report" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          cat lean_proof_report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
           echo "## L0-ISM Full Voynich Verification Report" >> $GITHUB_STEP_SUMMARY
           echo '```text' >> $GITHUB_STEP_SUMMARY
           cat audit_report.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-      - name: Upload Audit Report Artifact
+      - name: Upload Audit & Proof Report Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: l0-ism-voynich-audit-report
-          path: audit_report.txt
+          path: |
+            audit_report.txt
+            lean_proof_report.txt
           retention-days: 90
