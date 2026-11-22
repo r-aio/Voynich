@@ -95,18 +95,24 @@ jobs:
       - name: Publish Reports to GitHub Step Summary
         if: always()
         run: |
-          echo "## Lean 4 Kernel-Checked Proof Report" >> $GITHUB_STEP_SUMMARY
-          echo '```text' >> $GITHUB_STEP_SUMMARY
-          cat lean_proof_report.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "## L0-ISM v2.1 Layer I Falsification Report" >> $GITHUB_STEP_SUMMARY
-          echo '```text' >> $GITHUB_STEP_SUMMARY
-          cat layer1_falsification_report.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "## L0-ISM Layer II Verification Report" >> $GITHUB_STEP_SUMMARY
-          echo '```text' >> $GITHUB_STEP_SUMMARY
-          cat audit_report.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          if [ -f lean_proof_report.txt ]; then
+            echo "## Lean 4 Kernel-Checked Proof Report" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat lean_proof_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f layer1_falsification_report.txt ]; then
+            echo "## L0-ISM v2.1 Layer I Falsification Report" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat layer1_falsification_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f audit_report.txt ]; then
+            echo "## L0-ISM Layer II Verification Report" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat audit_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Upload Verification Artifacts
         if: always()
@@ -117,4 +123,5 @@ jobs:
             audit_report.txt
             lean_proof_report.txt
             layer1_falsification_report.txt
+          if-no-files-found: warn
           retention-days: 90
