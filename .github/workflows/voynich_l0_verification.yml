@@ -5,45 +5,82 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  schedule:
+    # Daily automated integrity audit at 06:00 UTC
+    - cron: '0 6 * * *'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   verify-l0-ism:
+    name: C99 Zero-Heap LUT, Z3 SMT Proof, DFA Audit & Negative Controls
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.11'
 
       - name: Install Z3 SMT Solver
         run: |
           python -m pip install --upgrade pip
           pip install z3-solver
 
-      - name: Verify Zero-Heap C99 Header (voynich_l0_lut.h)
+      - name: Compile and Verify C99 Zero-Heap LUT (voynich_l0_lut.h)
         run: |
-          cat << 'EOF' > test_lut_compile.c
+          cat << 'EOF' > test_c99_lut.c
+          #include <stdio.h>
+          #include <assert.h>
           #include "voynich_l0_lut.h"
+
           int main(void) {
+              VoynichLUT_Entry_t e1 = voynich_decode_frame("qokaiin");
+              assert(e1.target_node == NODE_PRIMARY_COOLING);
+              assert(e1.state_delta == +2);
+              assert(e1.valve_position_pct == 22);
+
+              VoynichLUT_Entry_t e2 = voynich_decode_frame("qotaiiin");
+              assert(e2.target_node == NODE_HYPOCAUST_3WAY_VALVE);
+              assert(e2.state_delta == +3);
+
+              VoynichLUT_Entry_t e3 = voynich_decode_frame("ckhaiin");
+              assert(e3.target_node == NODE_THERMAL_EXP_BELLOWS);
+              assert(e3.state_delta == 0);
+
+              VoynichLUT_Entry_t e4 = voynich_decode_frame("qokaiiii");
+              assert(e4.state_delta == L0_HARD_STOP_CODE);
+
+              VoynichLUT_Entry_t e_unk = voynich_decode_frame("non_existent_token");
+              assert(e_unk.state_delta == L0_HARD_STOP_CODE);
+
+              printf("[PASS] C99 Zero-Heap O(1) LUT compiled and verified successfully.\n");
               return 0;
           }
           EOF
-          gcc -std=c99 -Wall -Wextra -pedantic test_lut_compile.c -o test_lut_compile
-          ./test_lut_compile
-          echo "C99 Zero-Heap header compiled cleanly with GCC (-std=c99 -Wall -Wextra -pedantic)."
+          gcc -std=c99 -Wall -Wextra -Werror -O2 test_c99_lut.c -o test_c99_lut
+          ./test_c99_lut
 
-      - name: Run Full IVTFF 2.0 Audit (ZL3b-n.txt & RF1b-e.txt) + Z3 Proof
+      - name: Execute Full IVTFF 2.0 Audit, Negative Controls & Z3 SMT Proofs
         run: |
-          python voynich_ivtff_auditor.py ZL3b-n.txt RF1b-e.txt | tee audit_report.txt
+          python voynich_ivtff_auditor.py ZL3b-n.txt RF1b-e.txt > audit_report.txt
+          cat audit_report.txt
 
-      - name: Publish Report to GitHub Job Summary
+      - name: Publish Report to GitHub Step Summary
         run: |
-          echo "## L0-ISM Full Voynich Verification Report" >> "$GITHUB_STEP_SUMMARY"
-          echo '```text' >> "$GITHUB_STEP_SUMMARY"
-          cat audit_report.txt >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "## L0-ISM Full Voynich Verification Report" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          cat audit_report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Audit Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: l0-ism-voynich-audit-report
+          path: audit_report.txt
+          retention-days: 90
