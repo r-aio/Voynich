@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   verify-l0-ism:
-    name: C99 LUT, Lean 4 Kernel Proof, Z3 SMT, DFA Audit & Monte Carlo
+    name: C99 LUT, Lean 4 Proof, Z3 SMT, DFA Audit & Layer I Falsifier (v2.1)
     runs-on: ubuntu-latest
 
     steps:
@@ -82,27 +82,39 @@ jobs:
           gcc -std=c99 -Wall -Wextra -Werror -O2 test_c99_lut.c -o test_c99_lut
           ./test_c99_lut
 
-      - name: Execute Full IVTFF 2.0 Audit, Negative Controls & Z3 SMT Proofs
+      - name: Execute Layer II Audit, Negative Controls & Z3 SMT Proofs
         run: |
           python voynich_ivtff_auditor.py ZL3b-n.txt RF1b-e.txt > audit_report.txt
           cat audit_report.txt
 
-      - name: Publish Report to GitHub Step Summary
+      - name: Execute Layer I Falsification Suite (v2.1)
+        run: |
+          python voynich_layer1_falsifier.py ZL3b-n.txt RF1b-e.txt > layer1_falsification_report.txt
+          cat layer1_falsification_report.txt
+
+      - name: Publish Reports to GitHub Step Summary
+        if: always()
         run: |
           echo "## Lean 4 Kernel-Checked Proof Report" >> $GITHUB_STEP_SUMMARY
           echo '```text' >> $GITHUB_STEP_SUMMARY
           cat lean_proof_report.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "## L0-ISM Full Voynich Verification Report" >> $GITHUB_STEP_SUMMARY
+          echo "## L0-ISM v2.1 Layer I Falsification Report" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          cat layer1_falsification_report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "## L0-ISM Layer II Verification Report" >> $GITHUB_STEP_SUMMARY
           echo '```text' >> $GITHUB_STEP_SUMMARY
           cat audit_report.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-      - name: Upload Audit & Proof Report Artifacts
+      - name: Upload Verification Artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: l0-ism-voynich-audit-report
+          name: l0-ism-voynich-audit-report-v2.1
           path: |
             audit_report.txt
             lean_proof_report.txt
+            layer1_falsification_report.txt
           retention-days: 90
