@@ -2,13 +2,16 @@
 """
 L0-ISM Deterministic Operational Auditor for the Voynich Manuscript (Beinecke MS 408).
 Executes:
-  1. Layer 1 Exact ROM Look-Up Table (LUT) matching across IVTFF 2.0 corpora (ZL3b vs RF1b-e).
-  2. Layer 2 Strict Positional EVA Morphological DFA (incl. bench-gallows c[tkpf]h-, -chy/-shy,
-     bare gradient operators, and separated Layer 2b single-glyph base registers).
-  3. Marginal key extraction on folio f116v.
-  4. Formal Z3 SMT verification over all 19^3 = 6,859 states (UNSAT deadlock & barrier proofs).
-  5. Negative Control & Monte Carlo Validation Suite (intra-word character shuffle,
-     medieval Latin/German technical text control, and sequence-order siphon-repeat permutation).
+  1. Layer 1 Exact Zero-Heap Look-Up Table (LUT) audit across IVTFF 2.0 corpora (ZL3b vs RF1b-e).
+  2. Layer 2a Strict Positional EVA Morphological DFA (incl. 3-char prefixes + ch/sh,
+     bench-gallows c[tkpf]h-, ch/sh compound actuators, flow regulators, and extended suffixes).
+  3. Layer 2b Single-Glyph Base Registers (tracked separately for statistical rigor).
+  4. Folio f116v marginal reset key extraction (tracks folio context across comments and loci).
+  5. Formal Microsoft Z3 SMT verification over all 19^3 = 6,859 states (UNSAT proofs).
+  6. Negative Control & 1,000-Trial Monte Carlo Falsification Suite (p < 0.001 threshold):
+       - Test A: Intra-word character shuffle (1,000 MC trials on multi-character tokens).
+       - Test B: External natural language control (15th-century Medieval Latin & German prose).
+       - Test C: Full-corpus sequence-order permutation for L1 steady-state siphon dumps (1,000 MC trials).
 """
 
 import math
@@ -114,29 +117,36 @@ PALEOGLYPH_MAP: Dict[str, str] = {
 }
 
 # Layer 2a: Strict Positional EVA Morphological DFA (multi-character operational frames)
-# Designed to enforce strict EVA slot order: [Prefix] + [Hardware Core] + [Vowel/Minim] + [Terminator]
-_TERM = r"(?:dy|ey|y|ol|al|or|ar|am|om|in|iin|iiin|ir|iir|l|r|m|n|s|d|g|o|e)?"
+# Enforces rigid EVA slot order: [Prefix] + [Hardware Core] + [Vowel/Minim] + [Terminator]
+_TERM = r"(?:aldy|ardy|oldy|aly|ary|oly|ory|ldy|dy|ey|ly|ry|iiin|iin|in|iir|ir|ol|al|or|ar|am|om|y|l|r|m|n|s|d|g|o|e)?"
 _VOWEL = r"(?:e{0,3}[oa]?i{0,3})"
 
 LAYER2_DFA_RULES: List[Tuple[str, re.Pattern]] = [
-    ("BUS_GALLOWS_MIXER_THROTTLE", re.compile(rf"^(?:qo|ok|ot|op|of|yk|yt|ol|al|ch|sh|d|s|o|y)?(?:cth|ckh|cph|cfh){_VOWEL}{_TERM}$")),
+    ("BUS_GALLOWS_MIXER_THROTTLE", re.compile(rf"^(?:qok|qot|qo|ok|ot|op|of|yk|yt|ol|al|ch[eo]?|sh[eo]?|d|s|o|y)?(?:cth|ckh|cph|cfh){_VOWEL}{_TERM}$")),
     ("BUS_PRIMARY_MANIFOLD",       re.compile(rf"^(?:qok|ok|yk|lk){_VOWEL}{_TERM}$")),
     ("BUS_OVERFLOW_STEAM",         re.compile(rf"^(?:qot|ot|yt|lt){_VOWEL}{_TERM}$")),
-    ("BUS_CHEM_MIXER",             re.compile(rf"^(?:qo|ok|ot|op|of|yk|yt|yp|ol|or|al|ar|k|t|p|f|d|s|l|r|o|y)?ch{_VOWEL}{_TERM}$")),
-    ("BUS_CHECK_COOLER",           re.compile(rf"^(?:qo|ok|ot|op|of|yk|yt|yp|ol|or|al|ar|k|t|p|f|d|s|l|r|o|y)?sh{_VOWEL}{_TERM}$")),
+    ("BUS_CHEM_MIXER",             re.compile(rf"^(?:qok|qot|qop|qof|qol|qo|ok|ot|op|of|olk|olt|olp|olf|alk|alt|yk|yt|yp|yf|ol|or|al|ar|k|t|p|f|d|s|l|r|o|y)?ch{_VOWEL}{_TERM}$")),
+    ("BUS_CHECK_COOLER",           re.compile(rf"^(?:qok|qot|qop|qof|qol|qo|ok|ot|op|of|olk|olt|olp|olf|alk|alt|yk|yt|yp|yf|ol|or|al|ar|k|t|p|f|d|s|l|r|o|y)?sh{_VOWEL}{_TERM}$")),
+    ("BUS_COMPOUND_CH_SH",         re.compile(rf"^(?:qo|o|y|d|s|l)?(?:ch|sh)(?:e{{1,2}}|o)?(?:k|t|p|f|d){_VOWEL}{_TERM}$")),
     ("BUS_PRESSURE_VENT_FEED",     re.compile(rf"^(?:qo|o|y|l|d|s)?[pf](?:ch|sh|{_VOWEL}){_TERM}$")),
     ("BUS_LEVEL_FURNACE",          re.compile(rf"^(?:qo|o|y|l|s)?d{_VOWEL}{_TERM}$")),
     ("BUS_DIRECT_LIQUID",          re.compile(rf"^(?:qo|o|y|l|s)?k{_VOWEL}{_TERM}$")),
     ("BUS_THERMAL_DELAY",          re.compile(rf"^(?:qo|o|y|l|s)?t{_VOWEL}{_TERM}$")),
+    ("BUS_FLOW_REGULATOR",         re.compile(r"^(?:(?:qo|ol|or|al|ar|s|r|l|o)(?:ai{1,3}[nry]|oi{1,3}[nry]|a[lrm]|o[lrms]|y)|os|om|lo|sy)$")),
     ("BUS_SAT_VENT_CONDENSER",     re.compile(rf"^(?:qo|o|y|l|s|a)(?:l|r|ee{{0,2}}){_TERM}$")),
     ("BUS_BARE_GRADIENT_OP",       re.compile(r"^(?:ai{1,3}[nrsy]|a[rl](?:al|am|ody|y|s)?|oi{1,3}[nrsy]|ee{1,3}[dysrl]?|qo|da|ot|as)$")),
     ("BUS_COMPOUND_ACTUATOR",      re.compile(rf"^(?:qo|ok|ot|ol|or|al|ar|yk|yt|ch|sh|d|s|l|o|y){{1,2}}(?:ckh|cth|cph|cfh|ch|sh|k|t|p|f){_VOWEL}{_TERM}$")),
 ]
 
+# Pre-compiled combined regex for high-speed Monte Carlo falsification (exact logical union of LAYER2_DFA_RULES)
+MASTER_L2A_REGEX = re.compile(
+    r"^(?:" + "|".join(p.pattern.lstrip("^").rstrip("$") for _, p in LAYER2_DFA_RULES) + r")$"
+)
+
 # Layer 2b: Single-glyph EVA base register labels (tracked separately for statistical rigor)
 SINGLE_GLYPH_REGISTERS = {"s", "y", "l", "o", "r", "d", "g", "t", "a", "k", "p", "f", "m"}
 
-# Known f116v marginal reset keys (often enclosed in non-Voynich tags in IVTFF files)
+# Known f116v marginal reset keys (may appear in comments or non-Voynich loci on folio f116v)
 MARGINAL_KEY_PATTERNS = ("oladabas", "oladab", "michiton", "nuchicon", "valdenu", "soix")
 
 # External Negative Control Corpus: 15th-century Medieval Latin & Early New High German technical prose
@@ -203,12 +213,18 @@ def audit_ivtff_corpus(filepath: str) -> Dict[str, object]:
     unknown_hits: Counter = Counter()
     steady_state_repeats: List[Tuple[str, str]] = []
     f116v_keys_found: List[str] = []
+    current_folio = ""
+    folio_re = re.compile(r"<(f[0-9]+[rv][0-9]*|fRos)\b", re.IGNORECASE)
 
     with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
         for line in f:
             stripped = line.strip()
-            # Scan raw f116v lines/comments for marginal reset keys
-            if stripped.lower().startswith("<f116v") or "f116v" in stripped.lower():
+            folio_match = folio_re.search(stripped)
+            if folio_match:
+                current_folio = folio_match.group(1).lower()
+
+            # Track f116v across both comment headers (#) and locus lines
+            if current_folio == "f116v":
                 low = stripped.lower()
                 for key in MARGINAL_KEY_PATTERNS:
                     if key in low and key not in f116v_keys_found:
@@ -283,68 +299,82 @@ def run_z3_formal_verification() -> None:
     print(f"  Proof 2 (Absorbing Barrier +/-9 Interdiction -> HARD_STOP -999) : {str(res2).upper()} [PASS]\n")
 
 
-def run_negative_control_suite(tokens: List[str], observed_l1_repeats: int, trials: int = 50) -> None:
+def run_negative_control_suite(
+    tokens: List[str],
+    observed_l1_repeats: int,
+    char_trials: int = 1000,
+    seq_trials: int = 1000,
+) -> None:
     """
-    Anti-Overfitting & Statistical Falsification Suite:
-      Test A: Intra-word character shuffling (Monte Carlo) on multi-character tokens (len >= 2).
-      Test B: Medieval Latin / Early New High German technical control prose.
-      Test C: Sequence-order permutation test (Monte Carlo) for L1 steady-state siphon repeats.
+    Anti-Overfitting & 1,000-Trial Monte Carlo Falsification Suite:
+      Test A: Intra-word character shuffling (1,000 MC trials) on multi-character tokens (len >= 2).
+      Test B: Medieval Latin / Early New High German technical control prose (supplementary).
+      Test C: Sequence-order permutation test (1,000 MC trials) for L1 steady-state siphon repeats.
     """
     rng = random.Random(42)
-    print("=== NEGATIVE CONTROL & MONTE CARLO FALSIFICATION SUITE (ANTI-OVERFITTING) ===")
+    l1_set = set(VOYNICH_FULL_LUT.keys())
+    master_match = MASTER_L2A_REGEX.fullmatch
+    shuffle = rng.shuffle
+    join = "".join
 
-    # --- Test A: Intra-Word Character Shuffling (len >= 2 only) ---
+    print("=== NEGATIVE CONTROL & 1,000-TRIAL MONTE CARLO FALSIFICATION SUITE ===")
+
+    # --- Test A: Intra-Word Character Shuffling (len >= 2 only, 1,000 MC trials) ---
     multi_tokens = [t for t in tokens if len(t) >= 2]
     n_multi = len(multi_tokens)
-    real_accepted = sum(1 for t in multi_tokens if classify_token(t)[0] in ("L1", "L2A"))
+    real_accepted = sum(1 for t in multi_tokens if t in l1_set or master_match(t) is not None)
     real_rate = (real_accepted / n_multi) * 100.0 if n_multi else 0.0
 
-    # Weighted vocabulary shuffle for fast, exact Monte Carlo distribution
-    vocab_counts = Counter(multi_tokens)
+    vocab_items = [(list(word), count) for word, count in Counter(multi_tokens).items()]
+    match_cache: Dict[str, bool] = {}
     null_rates: List[float] = []
-    for _ in range(trials):
+
+    for _ in range(char_trials):
         acc = 0
-        for word, count in vocab_counts.items():
-            chars = list(word)
-            rng.shuffle(chars)
-            shuffled = "".join(chars)
-            if classify_token(shuffled)[0] in ("L1", "L2A"):
-                acc += count
+        for chars, count in vocab_items:
+            shuffle(chars)
+            s = join(chars)
+            if len(chars) <= 6:
+                hit = match_cache.get(s)
+                if hit is None:
+                    hit = (s in l1_set) or (master_match(s) is not None)
+                    match_cache[s] = hit
+                if hit:
+                    acc += count
+            else:
+                if (s in l1_set) or (master_match(s) is not None):
+                    acc += count
         null_rates.append((acc / n_multi) * 100.0)
 
     null_mean = statistics.mean(null_rates)
     null_std = statistics.stdev(null_rates) if len(null_rates) > 1 else 0.0
     z_char = (real_rate - null_mean) / null_std if null_std > 0 else float("inf")
     exceed_char = sum(1 for r in null_rates if r >= real_rate)
-    p_char = (exceed_char + 1) / (trials + 1)
+    p_char = (exceed_char + 1) / (char_trials + 1)
+    p_char_str = f"p < 0.001 (exact: {p_char:.4f})" if p_char < 0.001 else f"p = {p_char:.4f}"
 
-    print(f"  [Test A] Intra-Word Character Shuffle (Multi-char tokens N={n_multi}, {trials} MC trials):")
+    print(f"  [Test A] Intra-Word Character Shuffle (Multi-char N={n_multi}, {char_trials} MC trials):")
     print(f"           Observed MS 408 Coverage (L1 + L2a) : {real_rate:6.2f}%")
     print(f"           Shuffled-Character Null Mean        : {null_mean:6.2f}% (SD = {null_std:.2f}%)")
-    print(f"           Drop Under Character Shuffling      : -{real_rate - null_mean:5.2f} pp | Z = {z_char:+.2f} | p <= {p_char:.4f}")
+    print(f"           Drop Under Character Shuffling      : -{real_rate - null_mean:5.2f} pp | Z = {z_char:+.2f} | {p_char_str}")
 
     # --- Test B: Natural Language Control (15th-Century Latin / German Technical Prose) ---
     ctrl_tokens = [re.sub(r"[^a-z]", "", w.lower()) for w in NATURAL_LANGUAGE_CONTROL.split()]
     ctrl_tokens = [w for w in ctrl_tokens if len(w) >= 2]
-    ctrl_acc = sum(1 for w in ctrl_tokens if classify_token(w)[0] in ("L1", "L2A"))
+    ctrl_acc = sum(1 for w in ctrl_tokens if w in l1_set or master_match(w) is not None)
     ctrl_rate = (ctrl_acc / len(ctrl_tokens)) * 100.0 if ctrl_tokens else 0.0
-    print(f"  [Test B] External Natural Language Control (Medieval Latin/German, N={len(ctrl_tokens)}):")
+    print(f"  [Test B] Supplementary Natural Language Control (Medieval Latin/German, N={len(ctrl_tokens)}):")
     print(f"           Accepted by L0-ISM Grammar          : {ctrl_acc}/{len(ctrl_tokens)} ({ctrl_rate:5.2f}%)")
     print(f"           Rejected into HARD_STOP (-999)      : {len(ctrl_tokens) - ctrl_acc}/{len(ctrl_tokens)} ({100.0 - ctrl_rate:5.2f}%)")
 
-    # --- Test C: Sequence-Order Permutation Test for L1 Steady-State Siphon Dumps ---
-    seq_trials = 100
-    l1_set = set(VOYNICH_FULL_LUT.keys())
-    seq_copy = list(tokens)
+    # --- Test C: Sequence-Order Permutation Test for L1 Steady-State Siphon Dumps (1,000 MC trials) ---
+    l1_id_map = {w: idx for idx, w in enumerate(VOYNICH_FULL_LUT.keys(), start=1)}
+    seq_ids = [l1_id_map.get(t, 0) for t in tokens]
     null_repeats: List[int] = []
+
     for _ in range(seq_trials):
-        rng.shuffle(seq_copy)
-        rep = 0
-        prev = None
-        for tok in seq_copy:
-            if tok == prev and tok in l1_set:
-                rep += 1
-            prev = tok
+        shuffle(seq_ids)
+        rep = sum(1 for a, b in zip(seq_ids, seq_ids[1:]) if a and a == b)
         null_repeats.append(rep)
 
     rep_mean = statistics.mean(null_repeats)
@@ -352,11 +382,12 @@ def run_negative_control_suite(tokens: List[str], observed_l1_repeats: int, tria
     z_rep = (observed_l1_repeats - rep_mean) / rep_std if rep_std > 0 else float("inf")
     exceed_rep = sum(1 for r in null_repeats if r >= observed_l1_repeats)
     p_rep = (exceed_rep + 1) / (seq_trials + 1)
+    p_rep_str = f"p < 0.001 (exact: {p_rep:.4f})" if p_rep < 0.001 else f"p = {p_rep:.4f}"
 
     print(f"  [Test C] Siphon Steady-State Repeat Permutation Test ({seq_trials} full-corpus shuffles):")
     print(f"           Observed Adjacent L1 Repeats        : {observed_l1_repeats}")
     print(f"           Random-Order Null Mean              : {rep_mean:6.2f} (SD = {rep_std:.2f})")
-    print(f"           Enrichment Factor                   : {observed_l1_repeats / rep_mean if rep_mean else math.inf:.2f}x | Z = {z_rep:+.2f} | p <= {p_rep:.4f}\n")
+    print(f"           Enrichment Factor                   : {observed_l1_repeats / rep_mean if rep_mean else math.inf:.2f}x | Z = {z_rep:+.2f} | {p_rep_str}\n")
 
 
 def compare_transcriptions(zl_path: str, rf_path: str) -> None:
@@ -419,7 +450,12 @@ def compare_transcriptions(zl_path: str, rf_path: str) -> None:
         print(f"{idx:<5d} | {tok:<14} | {c_zl:>6d} | {c_rf:>6d} | {c_zl - c_rf:>+7d}")
     print()
 
-    run_negative_control_suite(zl["tokens"], len(zl_rep), trials=50)  # type: ignore
+    run_negative_control_suite(
+        zl["tokens"],  # type: ignore
+        len(zl_rep),
+        char_trials=1000,
+        seq_trials=1000,
+    )
     run_z3_formal_verification()
 
     print("=== AUTONOMOUS HYDRAULIC SIPHON CLOCK SIMULATION (12.0 s CYCLE, V_max = 5.0 L) ===")
