@@ -48,10 +48,10 @@ jobs:
               assert(e2.state_delta == +3);
 
               VoynichLUT_Entry_t e3 = voynich_decode_frame("qokaiiii");
-              assert(e3.state_delta == LO_HARD_STOP_CODE);
+              assert(e3.state_delta == L0_HARD_STOP_CODE);
 
               VoynichLUT_Entry_t e_unk = voynich_decode_frame("non_existent_token");
-              assert(e_unk.state_delta == LO_HARD_STOP_CODE);
+              assert(e_unk.state_delta == L0_HARD_STOP_CODE);
 
               printf("[PASS] C99 Zero-Heap O(1) LUT verified successfully.\n");
               return 0;
