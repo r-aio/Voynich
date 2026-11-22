@@ -64,13 +64,13 @@ theorem stepOp_contract (k : Nat) (s : Int) (hk : k < 8)
   unfold stepOp
   by_cases h1 : s ≤ -9 ∨ s ≥ 9
   · omega
-  · rw [if_neg h1]
+  · rw [ite_eq_right h1]
     by_cases h2 : s > 0
-    · rw [if_pos h2]; omega
-    · rw [if_neg h2]
+    · rw [ite_eq_left h2]; omega
+    · rw [ite_eq_right h2]
       by_cases h3 : s < 0
-      · rw [if_pos h3]; omega
-      · rw [if_neg h3]; omega
+      · rw [ite_eq_left h3]; omega
+      · rw [ite_eq_right h3]; omega
 
 /-- Inductive 1D convergence to Fulcrum (0) in at most k <= 8 steps. -/
 theorem iterStep_converges : ∀ (k : Nat) (s : Int),
@@ -111,7 +111,7 @@ theorem l0_ism_no_deadlock :
 /-- Theorem 3: Absorbing Barrier Interdiction — Any |s| >= 9 unconditionally forces HARD_STOP (-999). -/
 theorem l0_ism_barrier_interdiction (s : Int) (hb : s ≤ -9 ∨ s ≥ 9) :
     stepOp s = HARD_STOP := by
-  rw [stepOp, if_pos hb]
+  rw [stepOp, ite_eq_left hb]
 
 /-- Theorem 4: Fulcrum Equilibrium Invariance — (0, 0, 0) is a fixed point for all n >= 0. -/
 theorem l0_ism_fulcrum_fixed_point (n : Nat) :
@@ -230,7 +230,7 @@ theorem lookupAux_unknown (w : String) (xs : List LUTEntry)
   | cons e rest ih =>
       simp only [lookupAux]
       have hne : e.evaWord ≠ w := h e (by simp)
-      rw [if_neg hne]
+      rw [ite_eq_right hne]
       exact ih (fun x hx => h x (by simp [hx]))
 
 /-- Theorem 7: Fail-Safe Completeness — Any unmapped EVA frame deterministically triggers HARD_STOP (-999). -/
