@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   audit-pure-corpus:
-    name: Pure Corpus Audit, Cipher & Deep Probes (ZL3b-n.txt & RF1b-e.txt)
+    name: Pure Corpus Audit, Cipher, Deep & Dissector (ZL3b-n.txt & RF1b-e.txt)
     runs-on: ubuntu-latest
 
     steps:
@@ -57,9 +57,25 @@ jobs:
             cat deep_probes_report.txt
           fi
 
+      - name: Execute Surgical Anomaly Dissector
+        run: |
+          if [ -f voynich_anomaly_dissector.py ]; then
+            python voynich_anomaly_dissector.py ZL3b-n.txt RF1b-e.txt > anomaly_dissector_report.txt
+            cat anomaly_dissector_report.txt
+          else
+            echo "[INFO] voynich_anomaly_dissector.py not present; skipping anomaly dissector." > anomaly_dissector_report.txt
+            cat anomaly_dissector_report.txt
+          fi
+
       - name: Publish Reports to GitHub Step Summary
         if: always()
         run: |
+          if [ -f anomaly_dissector_report.txt ]; then
+            echo "## Voynich Surgical Anomaly Dissector" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat anomaly_dissector_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
           if [ -f deep_probes_report.txt ]; then
             echo "## Voynich Deep Structural & Mechanism Probes" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
@@ -88,5 +104,6 @@ jobs:
             pure_corpus_audit_report.txt
             cipher_probes_report.txt
             deep_probes_report.txt
+            anomaly_dissector_report.txt
           if-no-files-found: warn
           retention-days: 90
