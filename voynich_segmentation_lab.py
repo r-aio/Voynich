@@ -2,7 +2,7 @@
 """
 Exploratory laboratory script for ZL3b-n.txt:
 Measures vocabulary size, Type-Token Ratio (TTR), top-20 token share, and
-within-folio +/-5 local repetition lift across four pure string/segmentation
+within-folio +/-5 local repetition lift across five pure string/segmentation
 transforms (no semantic labels):
   1. baseline             : raw normalized EVA tokens per line
   2. merge_short_1_2      : merges adjacent short tokens (len <= 2) within a line
@@ -32,25 +32,25 @@ CHUNKS: Tuple[str, ...] = (
     "qok", "qot", "qo", "ok", "ot", "yk", "yt", "sh", "ch",
     "eedy", "edy", "aiin", "iin", "in", "dy", "ey", "ol", "or", "al", "ar", "am"
 )
-# Sorted longest-first for greedy maximal chunk matching
 CHUNKS_SORTED: List[str] = sorted(set(CHUNKS), key=len, reverse=True)
 
 
+def extract_folio_from_line(raw_line: str) -> str:
+    m = re.match(r"^\s*#?\s*<(f[0-9]+[rv][0-9]*|fRos)(?:[.\s>])", raw_line, re.IGNORECASE)
+    return m.group(1).lower() if m else ""
+
+
 def load_lines_by_folio(filepath: str) -> Dict[str, List[List[str]]]:
-    folio_re = re.compile(r"<(f[0-9]+[rv][0-9]*|fRos)\b", re.IGNORECASE)
-    cur_folio = ""
     by_folio: Dict[str, List[List[str]]] = defaultdict(list)
 
     with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
         for raw in f:
-            s = raw.strip()
-            m = folio_re.search(s)
-            if m:
-                cur_folio = m.group(1).lower()
+            fid = extract_folio_from_line(raw)
+            if not fid:
                 continue
             toks = normalize_ivtff_line(raw)
-            if toks and cur_folio:
-                by_folio[cur_folio].append(toks)
+            if toks:
+                by_folio[fid].append(toks)
     return by_folio
 
 
