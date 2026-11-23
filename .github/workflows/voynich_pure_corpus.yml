@@ -1,5 +1,10 @@
 name: Pure Voynich Corpus Audit
-
+- name: Execute Cryptographic & Verbose-Cipher Probes
+        run: |
+          if [ -f voynich_cipher_probes.py ]; then
+            python voynich_cipher_probes.py ZL3b-n.txt > cipher_probes_report.txt
+            cat cipher_probes_report.txt
+          fi
 on:
   push:
     branches: [ "main" ]
