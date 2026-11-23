@@ -176,17 +176,24 @@ def classify_token(tok: str) -> Tuple[str, str]:
 
 
 def normalize_ivtff_line(raw_line: str) -> List[str]:
-    """Cleans a single IVTFF 2.0 line (ZL3b or RF1b-e) and returns normalized EVA tokens."""
+    """
+    Cleans a single IVTFF 2.0 locus line (ZL3b or RF1b-e) and returns normalized EVA tokens.
+    Strictly skips folio header tags (no '.' in tag, e.g. <f69v> <! $Q=J ...>) while preserving
+    circular/radial/rosette locus lines that start with inline position comments
+    (e.g. <f69v.1,@Cc> <!11:00>dair.cheyky...).
+    """
     line = raw_line.strip()
     if not line or line.startswith("#") or not line.startswith("<f"):
-        return []
-    if re.match(r"^<f[^>]+>\s*<!", line):
         return []
 
     parts = line.split(">", 1)
     if len(parts) < 2:
         return []
-    text = parts[1]
+
+    tag, text = parts[0], parts[1]
+    # In IVTFF 2.0, folio headers have no dot (<f69v>), while every locus line has a dot (<f69v.1,@Cc>)
+    if "." not in tag:
+        return []
 
     text = re.sub(r"<!.*?>", "", text)
     text = re.sub(r"<[%\$\-~]>", ".", text)
