@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   audit-pure-corpus:
-    name: Pure Corpus Audit & Cipher Probes (ZL3b-n.txt & RF1b-e.txt)
+    name: Pure Corpus Audit, Cipher & Deep Probes (ZL3b-n.txt & RF1b-e.txt)
     runs-on: ubuntu-latest
 
     steps:
@@ -47,9 +47,25 @@ jobs:
             cat cipher_probes_report.txt
           fi
 
+      - name: Execute Deep Structural & Mechanism Probes
+        run: |
+          if [ -f voynich_deep_probes.py ]; then
+            python voynich_deep_probes.py ZL3b-n.txt > deep_probes_report.txt
+            cat deep_probes_report.txt
+          else
+            echo "[INFO] voynich_deep_probes.py not present; skipping deep probes." > deep_probes_report.txt
+            cat deep_probes_report.txt
+          fi
+
       - name: Publish Reports to GitHub Step Summary
         if: always()
         run: |
+          if [ -f deep_probes_report.txt ]; then
+            echo "## Voynich Deep Structural & Mechanism Probes" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat deep_probes_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
           if [ -f cipher_probes_report.txt ]; then
             echo "## Voynich Cryptographic & Verbose-Cipher Probes" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
@@ -71,5 +87,6 @@ jobs:
           path: |
             pure_corpus_audit_report.txt
             cipher_probes_report.txt
+            deep_probes_report.txt
           if-no-files-found: warn
           retention-days: 90
