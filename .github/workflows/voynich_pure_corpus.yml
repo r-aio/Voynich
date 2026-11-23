@@ -1,10 +1,5 @@
 name: Pure Voynich Corpus Audit
-- name: Execute Cryptographic & Verbose-Cipher Probes
-        run: |
-          if [ -f voynich_cipher_probes.py ]; then
-            python voynich_cipher_probes.py ZL3b-n.txt > cipher_probes_report.txt
-            cat cipher_probes_report.txt
-          fi
+
 on:
   push:
     branches: [ "main" ]
@@ -20,7 +15,7 @@ permissions:
 
 jobs:
   audit-pure-corpus:
-    name: Pure Corpus Audit (ZL3b-n.txt & RF1b-e.txt)
+    name: Pure Corpus Audit & Cipher Probes (ZL3b-n.txt & RF1b-e.txt)
     runs-on: ubuntu-latest
 
     steps:
@@ -42,9 +37,25 @@ jobs:
             cat pure_corpus_audit_report.txt
           fi
 
-      - name: Publish Report to GitHub Step Summary
+      - name: Execute Cryptographic & Verbose-Cipher Probes
+        run: |
+          if [ -f voynich_cipher_probes.py ]; then
+            python voynich_cipher_probes.py ZL3b-n.txt > cipher_probes_report.txt
+            cat cipher_probes_report.txt
+          else
+            echo "[INFO] voynich_cipher_probes.py not present; skipping cipher probes." > cipher_probes_report.txt
+            cat cipher_probes_report.txt
+          fi
+
+      - name: Publish Reports to GitHub Step Summary
         if: always()
         run: |
+          if [ -f cipher_probes_report.txt ]; then
+            echo "## Voynich Cryptographic & Verbose-Cipher Probes" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat cipher_probes_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
           if [ -f pure_corpus_audit_report.txt ]; then
             echo "## Pure Voynich Corpus Audit Report" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
@@ -52,11 +63,13 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Upload Pure Corpus Audit Artifact
+      - name: Upload Pure Corpus Audit Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: voynich-pure-corpus-audit-report
-          path: pure_corpus_audit_report.txt
+          path: |
+            pure_corpus_audit_report.txt
+            cipher_probes_report.txt
           if-no-files-found: warn
           retention-days: 90
