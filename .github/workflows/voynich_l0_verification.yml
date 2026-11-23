@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   verify-l0-ism:
-    name: Automaton (C99/Lean 4/Z3), Controls, Ablation, Falsifiers, Holdout & Codex Audit (v2.6)
+    name: Automaton (C99/Lean 4/Z3), Controls, Ablation, Falsifiers, Holdout, Codex & Benchmark (v2.7)
     runs-on: ubuntu-latest
 
     steps:
@@ -125,6 +125,15 @@ jobs:
             echo "[INFO] voynich_codex_layout_audit.py not present; skipping codex layout audit."
           fi
 
+      - name: Execute Generative & Structural Benchmark Suite (v2.7)
+        run: |
+          if [ -f voynich_generator_benchmark.py ]; then
+            python voynich_generator_benchmark.py ZL3b-n.txt > generator_benchmark_report.txt
+            cat generator_benchmark_report.txt
+          else
+            echo "[INFO] voynich_generator_benchmark.py not present; skipping generator benchmark."
+          fi
+
       - name: Publish Reports to GitHub Step Summary
         if: always()
         run: |
@@ -132,6 +141,12 @@ jobs:
             echo "## Lean 4 Kernel-Checked Automaton Proof Report" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
             cat lean_proof_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f generator_benchmark_report.txt ]; then
+            echo "## L0-ISM v2.7 Generative & Structural Benchmark Report" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat generator_benchmark_report.txt >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
           if [ -f codex_layout_audit_report.txt ]; then
@@ -181,7 +196,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: l0-ism-voynich-audit-report-v2.6
+          name: l0-ism-voynich-audit-report-v2.7
           path: |
             audit_report.txt
             lean_proof_report.txt
@@ -191,5 +206,6 @@ jobs:
             holdout_protocol_report.txt
             segmentation_lab_report.txt
             codex_layout_audit_report.txt
+            generator_benchmark_report.txt
           if-no-files-found: warn
           retention-days: 90
