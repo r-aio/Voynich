@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   audit-pure-corpus:
-    name: Pure Corpus Audit, Cipher, Deep & Dissector (ZL3b-n.txt & RF1b-e.txt)
+    name: Pure Corpus Audit, Probes, Dissector & Generators (ZL3b-n.txt & RF1b-e.txt)
     runs-on: ubuntu-latest
 
     steps:
@@ -67,9 +67,25 @@ jobs:
             cat anomaly_dissector_report.txt
           fi
 
+      - name: Execute Generator Comparison Benchmark
+        run: |
+          if [ -f voynich_generator_comparison.py ]; then
+            python voynich_generator_comparison.py > generator_comparison_report.txt
+            cat generator_comparison_report.txt
+          else
+            echo "[INFO] voynich_generator_comparison.py not present; skipping generator comparison." > generator_comparison_report.txt
+            cat generator_comparison_report.txt
+          fi
+
       - name: Publish Reports to GitHub Step Summary
         if: always()
         run: |
+          if [ -f generator_comparison_report.txt ]; then
+            echo "## Voynich Generator Comparison Benchmark" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat generator_comparison_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
           if [ -f anomaly_dissector_report.txt ]; then
             echo "## Voynich Surgical Anomaly Dissector" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
@@ -105,5 +121,6 @@ jobs:
             cipher_probes_report.txt
             deep_probes_report.txt
             anomaly_dissector_report.txt
+            generator_comparison_report.txt
           if-no-files-found: warn
           retention-days: 90
