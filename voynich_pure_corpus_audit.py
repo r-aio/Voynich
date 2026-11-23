@@ -15,6 +15,8 @@ Checks:
      & section boundary (first vs. last line of each section $I) word lengths.
   7. Word bigram/trigram repeats & near (<=5) vs. far (>5) same-folio
      word recurrence vs. within-folio shuffle control.
+  8. Manuscript production & layout economy: per-section line density (tokens/line),
+     type-to-token novelty ratio, and alignment divergence vs. line length across folios.
 """
 
 from __future__ import annotations
@@ -607,6 +609,62 @@ def test7_word_ngrams_and_lag_profile(entries: List[LineEntry]) -> None:
     print()
 
 
+def test8_layout_economy_and_divergence(zl_entries: List[LineEntry], rf_entries: List[LineEntry]) -> None:
+    print("=== TEST 8: LAYOUT ECONOMY (TOKENS/LINE & NOVELTY) VS. TRANSCRIPTION DIVERGENCE ===")
+    by_sec_lines: Dict[str, int] = defaultdict(int)
+    by_sec_toks: Dict[str, List[str]] = defaultdict(list)
+    by_folio_lines: Dict[str, int] = defaultdict(int)
+    by_folio_toks: Dict[str, List[str]] = defaultdict(list)
+
+    for e in zl_entries:
+        if not e.tokens:
+            continue
+        by_sec_lines[e.section] += 1
+        by_sec_toks[e.section].extend(e.tokens)
+        by_folio_lines[e.folio] += 1
+        by_folio_toks[e.folio].extend(e.tokens)
+
+    print("  Section Economy (Line Density & Type/Token Ratio):")
+    print("  Sec | Lines | Tokens | Toks/Line | Types | Type/Tok")
+    print("  ----------------------------------------------------")
+    for sec in sorted(by_sec_toks.keys()):
+        nl = by_sec_lines[sec]
+        toks = by_sec_toks[sec]
+        nt = len(toks)
+        nu = len(set(toks))
+        dens = (nt / nl) if nl else 0.0
+        ttr = (nu / nt) if nt else 0.0
+        print(f"  {sec:<3} | {nl:5d} | {nt:6d} | {dens:9.2f} | {nu:5d} | {ttr:8.4f}")
+
+    if rf_entries:
+        zl_by_line = {e.line_id: e.tokens for e in zl_entries if e.tokens}
+        rf_by_line = {e.line_id: e.tokens for e in rf_entries if e.tokens}
+        common = sorted(set(zl_by_line.keys()) & set(rf_by_line.keys()))
+        f_sim: Dict[str, List[float]] = defaultdict(list)
+        for lid in common:
+            r = difflib.SequenceMatcher(None, zl_by_line[lid], rf_by_line[lid], autojunk=False).ratio()
+            f_sim[lid.split(".", 1)[0]].append(r)
+
+        sparse_sims: List[float] = []
+        dense_sims: List[float] = []
+        for fid, vals in f_sim.items():
+            nl = by_folio_lines.get(fid, 0)
+            nt = len(by_folio_toks.get(fid, []))
+            dens = (nt / nl) if nl else 0.0
+            m_sim = statistics.mean(vals)
+            if dens < 6.0:
+                sparse_sims.append(m_sim)
+            else:
+                dense_sims.append(m_sim)
+
+        print("\n  Aligned Similarity by Folio Line Density (ZL3b-n vs. RF1b-e):")
+        if sparse_sims:
+            print(f"    Sparse-line folios (<6.0 toks/line, n={len(sparse_sims):3d}) : mean_sim={statistics.mean(sparse_sims):.4f}")
+        if dense_sims:
+            print(f"    Dense-line folios  (>=6.0 toks/line, n={len(dense_sims):3d}) : mean_sim={statistics.mean(dense_sims):.4f}")
+    print()
+
+
 def main() -> None:
     zl_path = sys.argv[1] if len(sys.argv) > 1 else "ZL3b-n.txt"
     rf_path = sys.argv[2] if len(sys.argv) > 2 else "RF1b-e.txt"
@@ -625,6 +683,7 @@ def main() -> None:
     test6_line_shuffle_and_section_bounds(zl_entries)
     test7_word_ngrams_and_lag_profile(zl_entries)
 
+    rf_entries: List[LineEntry] = []
     try:
         rf_entries = parse_ivtff(rf_path)
         if rf_entries:
@@ -632,6 +691,8 @@ def main() -> None:
             test4_dual_transcription_alignment(zl_entries, rf_entries)
     except FileNotFoundError:
         print(f"[INFO] Secondary corpus {rf_path} not found; skipping aligned comparison.\n")
+
+    test8_layout_economy_and_divergence(zl_entries, rf_entries)
 
 
 if __name__ == "__main__":
