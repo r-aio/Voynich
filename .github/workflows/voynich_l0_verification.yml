@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   verify-l0-ism:
-    name: Automaton (C99/Lean 4/Z3), Controls, Ablation, Falsifiers, Holdout & Segmentation (v2.6)
+    name: Automaton (C99/Lean 4/Z3), Controls, Ablation, Falsifiers, Holdout & Codex Audit (v2.6)
     runs-on: ubuntu-latest
 
     steps:
@@ -113,7 +113,16 @@ jobs:
             python voynich_segmentation_lab.py ZL3b-n.txt > segmentation_lab_report.txt
             cat segmentation_lab_report.txt
           else
-            echo "[INFO] voynich_segmentation_lab.py not present yet; skipping segmentation lab."
+            echo "[INFO] voynich_segmentation_lab.py not present; skipping segmentation lab."
+          fi
+
+      - name: Execute Codex Continuity, Divergence & Locus-Type Audit (v2.6)
+        run: |
+          if [ -f voynich_codex_layout_audit.py ]; then
+            python voynich_codex_layout_audit.py ZL3b-n.txt RF1b-e.txt > codex_layout_audit_report.txt
+            cat codex_layout_audit_report.txt
+          else
+            echo "[INFO] voynich_codex_layout_audit.py not present; skipping codex layout audit."
           fi
 
       - name: Publish Reports to GitHub Step Summary
@@ -123,6 +132,12 @@ jobs:
             echo "## Lean 4 Kernel-Checked Automaton Proof Report" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
             cat lean_proof_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f codex_layout_audit_report.txt ]; then
+            echo "## L0-ISM v2.6 Codex Continuity, Divergence & Locus-Type Report" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat codex_layout_audit_report.txt >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
           if [ -f segmentation_lab_report.txt ]; then
@@ -175,5 +190,6 @@ jobs:
             mw3_falsification_report.txt
             holdout_protocol_report.txt
             segmentation_lab_report.txt
+            codex_layout_audit_report.txt
           if-no-files-found: warn
           retention-days: 90
