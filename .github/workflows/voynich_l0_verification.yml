@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   verify-l0-ism:
-    name: Automaton (C99/Lean 4/Z3), Controls, Ablation, Falsifiers & Holdout (v2.5)
+    name: Automaton (C99/Lean 4/Z3), Controls, Ablation, Falsifiers, Holdout & Segmentation (v2.6)
     runs-on: ubuntu-latest
 
     steps:
@@ -107,6 +107,15 @@ jobs:
           python voynich_holdout_protocol.py ZL3b-n.txt > holdout_protocol_report.txt
           cat holdout_protocol_report.txt
 
+      - name: Execute Segmentation & Syllable-Interfix Lab (v2.6)
+        run: |
+          if [ -f voynich_segmentation_lab.py ]; then
+            python voynich_segmentation_lab.py ZL3b-n.txt > segmentation_lab_report.txt
+            cat segmentation_lab_report.txt
+          else
+            echo "[INFO] voynich_segmentation_lab.py not present yet; skipping segmentation lab."
+          fi
+
       - name: Publish Reports to GitHub Step Summary
         if: always()
         run: |
@@ -114,6 +123,12 @@ jobs:
             echo "## Lean 4 Kernel-Checked Automaton Proof Report" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
             cat lean_proof_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f segmentation_lab_report.txt ]; then
+            echo "## L0-ISM v2.6 Segmentation & Syllable-Interfix Lab Report" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat segmentation_lab_report.txt >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
           if [ -f holdout_protocol_report.txt ]; then
@@ -151,7 +166,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: l0-ism-voynich-audit-report-v2.5
+          name: l0-ism-voynich-audit-report-v2.6
           path: |
             audit_report.txt
             lean_proof_report.txt
@@ -159,5 +174,6 @@ jobs:
             positional_ablation_report.txt
             mw3_falsification_report.txt
             holdout_protocol_report.txt
+            segmentation_lab_report.txt
           if-no-files-found: warn
           retention-days: 90
