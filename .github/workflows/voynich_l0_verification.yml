@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   verify-l0-ism:
-    name: Automaton (C99/Lean 4/Z3), Stricter Controls, Ablation & Falsifiers (v2.4)
+    name: Automaton (C99/Lean 4/Z3), Controls, Ablation, Falsifiers & Holdout (v2.5)
     runs-on: ubuntu-latest
 
     steps:
@@ -102,6 +102,11 @@ jobs:
           python voynich_mw3_falsifier.py ZL3b-n.txt RF1b-e.txt > mw3_falsification_report.txt
           cat mw3_falsification_report.txt
 
+      - name: Execute Split-Half Folio Holdout & Frozen Window Protocol (v2.5)
+        run: |
+          python voynich_holdout_protocol.py ZL3b-n.txt > holdout_protocol_report.txt
+          cat holdout_protocol_report.txt
+
       - name: Publish Reports to GitHub Step Summary
         if: always()
         run: |
@@ -109,6 +114,12 @@ jobs:
             echo "## Lean 4 Kernel-Checked Automaton Proof Report" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
             cat lean_proof_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f holdout_protocol_report.txt ]; then
+            echo "## L0-ISM v2.5 Split-Half Holdout & Frozen Window Report" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat holdout_protocol_report.txt >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
           if [ -f audit_report.txt ]; then
@@ -140,12 +151,13 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: l0-ism-voynich-audit-report-v2.4
+          name: l0-ism-voynich-audit-report-v2.5
           path: |
             audit_report.txt
             lean_proof_report.txt
             layer1_falsification_report.txt
             positional_ablation_report.txt
             mw3_falsification_report.txt
+            holdout_protocol_report.txt
           if-no-files-found: warn
           retention-days: 90
