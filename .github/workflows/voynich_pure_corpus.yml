@@ -1,0 +1,57 @@
+name: Pure Voynich Corpus Audit
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    # Daily pure corpus check at 06:30 UTC
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-pure-corpus:
+    name: Pure Corpus Audit (ZL3b-n.txt & RF1b-e.txt)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Execute Pure Corpus Audit
+        run: |
+          if [ -f voynich_pure_corpus_audit.py ]; then
+            python voynich_pure_corpus_audit.py ZL3b-n.txt RF1b-e.txt > pure_corpus_audit_report.txt
+            cat pure_corpus_audit_report.txt
+          else
+            echo "[INFO] voynich_pure_corpus_audit.py not present; skipping pure corpus audit." > pure_corpus_audit_report.txt
+            cat pure_corpus_audit_report.txt
+          fi
+
+      - name: Publish Report to GitHub Step Summary
+        if: always()
+        run: |
+          if [ -f pure_corpus_audit_report.txt ]; then
+            echo "## Pure Voynich Corpus Audit Report" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat pure_corpus_audit_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Pure Corpus Audit Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voynich-pure-corpus-audit-report
+          path: pure_corpus_audit_report.txt
+          if-no-files-found: warn
+          retention-days: 90
