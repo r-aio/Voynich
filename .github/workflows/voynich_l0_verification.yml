@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   verify-l0-ism:
-    name: C99, Lean 4, Z3 SMT, Layer I Falsifier & Positional Ablation (v2.2)
+    name: C99, Lean 4, Z3 SMT, Layer I/II, Ablation & MW3 Falsifier (v2.3)
     runs-on: ubuntu-latest
 
     steps:
@@ -97,6 +97,11 @@ jobs:
           python voynich_positional_ablation.py ZL3b-n.txt > positional_ablation_report.txt
           cat positional_ablation_report.txt
 
+      - name: Execute MW3 Visual-Procedural Claims Falsification Audit (v2.3)
+        run: |
+          python voynich_mw3_falsifier.py ZL3b-n.txt RF1b-e.txt > mw3_falsification_report.txt
+          cat mw3_falsification_report.txt
+
       - name: Publish Reports to GitHub Step Summary
         if: always()
         run: |
@@ -104,6 +109,12 @@ jobs:
             echo "## Lean 4 Kernel-Checked Proof Report" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
             cat lean_proof_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f mw3_falsification_report.txt ]; then
+            echo "## L0-ISM v2.3 MW3 Claims Falsification Report" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat mw3_falsification_report.txt >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
           if [ -f positional_ablation_report.txt ]; then
@@ -129,11 +140,12 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: l0-ism-voynich-audit-report-v2.2
+          name: l0-ism-voynich-audit-report-v2.3
           path: |
             audit_report.txt
             lean_proof_report.txt
             layer1_falsification_report.txt
             positional_ablation_report.txt
+            mw3_falsification_report.txt
           if-no-files-found: warn
           retention-days: 90
