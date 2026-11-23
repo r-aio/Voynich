@@ -9,9 +9,10 @@ Checks:
      stratified by Currier style ($L) where present.
   3. Codex continuity ($Q, $I, $L, $H) and adjacent-folio vocabulary Jaccard.
   4. Dual-transcription alignment comparison (ZL3b-n.txt vs. RF1b-e.txt) on
-     matched lines/folios (resilient to token split/shift) + out-of-window /
-     rare-token concentration per folio.
-  5. Simple generative controls matched to folio line counts and lengths.
+     matched lines/folios (resilient to token split/shift).
+  5. Simple generative controls matched to folio token counts.
+  6. Within-line shuffle control (isolating local line-order vs. folio-bag)
+     & section boundary (first vs. last line of each section $I) word lengths.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ import statistics
 import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 
 @dataclass
@@ -44,7 +45,6 @@ LOCUS_RE = re.compile(r"^<(f[0-9]+[rv][0-9]*|fRos)\.([^>\s]+)>\s*(.*)$", re.IGNO
 
 
 def tokenize_ivtff_body(body: str) -> List[str]:
-    # Strip IVTFF inline comments, tags like <...> or {...}, and punctuation
     s = re.sub(r"#.*$", "", body)
     s = re.sub(r"<[^>]*>", " ", s)
     s = re.sub(r"\{[^}]*\}", " ", s)
@@ -455,6 +455,77 @@ def test5_simple_generators(entries: List[LineEntry]) -> None:
     print()
 
 
+def test6_line_shuffle_and_section_bounds(entries: List[LineEntry]) -> None:
+    print("=== TEST 6: WITHIN-LINE SHUFFLE & SECTION BOUNDARY WORD LENGTHS ===")
+    by_folio_lines: Dict[str, List[List[str]]] = defaultdict(list)
+    for e in entries:
+        if e.tokens:
+            by_folio_lines[e.folio].append(e.tokens)
+
+    real_folio_streams = [[t for line in lines for t in line] for lines in by_folio_lines.values()]
+    obs_ex, obs_e1 = window_rates(real_folio_streams, win_half=5)
+
+    rng = random.Random(2026)
+    line_shuf_ex: List[float] = []
+    line_shuf_e1: List[float] = []
+
+    for _ in range(10):
+        shuf_streams: List[List[str]] = []
+        for lines in by_folio_lines.values():
+            f_toks: List[str] = []
+            for line in lines:
+                cp = line[:]
+                rng.shuffle(cp)
+                f_toks.extend(cp)
+            shuf_streams.append(f_toks)
+        ex, e1 = window_rates(shuf_streams, win_half=5)
+        line_shuf_ex.append(ex)
+        line_shuf_e1.append(e1)
+
+    print(
+        f"  REAL +/-5 Window                 : Exact={obs_ex:5.2f}% | Edit1={obs_e1:5.2f}%"
+    )
+    print(
+        f"  SHUFFLE WITHIN LINE (10 trials)  : Exact={statistics.mean(line_shuf_ex):5.2f}% "
+        f"(SD={statistics.stdev(line_shuf_ex):.2f}%) | Edit1={statistics.mean(line_shuf_e1):5.2f}% "
+        f"(SD={statistics.stdev(line_shuf_e1):.2f}%)"
+    )
+
+    sec_first_lens: Dict[str, List[int]] = defaultdict(list)
+    sec_last_lens: Dict[str, List[int]] = defaultdict(list)
+    sec_all_lens: Dict[str, List[int]] = defaultdict(list)
+
+    for e in entries:
+        if not e.tokens:
+            continue
+        sec_all_lens[e.section].extend(len(t) for t in e.tokens)
+
+    # Identify first and last line entry per section in sequence order
+    first_seen_line: Dict[str, LineEntry] = {}
+    last_seen_line: Dict[str, LineEntry] = {}
+    for e in entries:
+        if not e.tokens:
+            continue
+        if e.section not in first_seen_line:
+            first_seen_line[e.section] = e
+        last_seen_line[e.section] = e
+
+    for sec, le in first_seen_line.items():
+        sec_first_lens[sec].extend(len(t) for t in le.tokens)
+    for sec, le in last_seen_line.items():
+        sec_last_lens[sec].extend(len(t) for t in le.tokens)
+
+    print("\n  Section Word Length Comparison (First Line vs. Last Line vs. Section Mean):")
+    print("  Sec | FirstLineLen | LastLineLen | SecMeanLen")
+    print("  -----------------------------------------------")
+    for sec in sorted(sec_all_lens.keys()):
+        f_m = statistics.mean(sec_first_lens[sec]) if sec_first_lens[sec] else 0.0
+        l_m = statistics.mean(sec_last_lens[sec]) if sec_last_lens[sec] else 0.0
+        a_m = statistics.mean(sec_all_lens[sec]) if sec_all_lens[sec] else 0.0
+        print(f"  {sec:<3} | {f_m:12.2f} | {l_m:11.2f} | {a_m:10.2f}")
+    print()
+
+
 def main() -> None:
     zl_path = sys.argv[1] if len(sys.argv) > 1 else "ZL3b-n.txt"
     rf_path = sys.argv[2] if len(sys.argv) > 2 else "RF1b-e.txt"
@@ -470,6 +541,7 @@ def main() -> None:
     test2_line_and_paragraph_positions(zl_entries)
     test3_codex_continuity(zl_entries)
     test5_simple_generators(zl_entries)
+    test6_line_shuffle_and_section_bounds(zl_entries)
 
     try:
         rf_entries = parse_ivtff(rf_path)
