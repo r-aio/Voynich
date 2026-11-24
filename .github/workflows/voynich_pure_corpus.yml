@@ -33,8 +33,7 @@ jobs:
             python voynich_pure_corpus_audit.py ZL3b-n.txt RF1b-e.txt > pure_corpus_audit_report.txt
             cat pure_corpus_audit_report.txt
           else
-            echo "[INFO] voynich_pure_corpus_audit.py not present; skipping pure corpus audit." > pure_corpus_audit_report.txt
-            cat pure_corpus_audit_report.txt
+            echo "[INFO] voynich_pure_corpus_audit.py not present; skipping." > pure_corpus_audit_report.txt
           fi
 
       - name: Execute Cryptographic & Verbose-Cipher Probes
@@ -43,8 +42,7 @@ jobs:
             python voynich_cipher_probes.py ZL3b-n.txt > cipher_probes_report.txt
             cat cipher_probes_report.txt
           else
-            echo "[INFO] voynich_cipher_probes.py not present; skipping cipher probes." > cipher_probes_report.txt
-            cat cipher_probes_report.txt
+            echo "[INFO] voynich_cipher_probes.py not present; skipping." > cipher_probes_report.txt
           fi
 
       - name: Execute Deep Structural & Mechanism Probes
@@ -53,8 +51,7 @@ jobs:
             python voynich_deep_probes.py ZL3b-n.txt > deep_probes_report.txt
             cat deep_probes_report.txt
           else
-            echo "[INFO] voynich_deep_probes.py not present; skipping deep probes." > deep_probes_report.txt
-            cat deep_probes_report.txt
+            echo "[INFO] voynich_deep_probes.py not present; skipping." > deep_probes_report.txt
           fi
 
       - name: Execute Surgical Anomaly Dissector
@@ -63,8 +60,7 @@ jobs:
             python voynich_anomaly_dissector.py ZL3b-n.txt RF1b-e.txt > anomaly_dissector_report.txt
             cat anomaly_dissector_report.txt
           else
-            echo "[INFO] voynich_anomaly_dissector.py not present; skipping anomaly dissector." > anomaly_dissector_report.txt
-            cat anomaly_dissector_report.txt
+            echo "[INFO] voynich_anomaly_dissector.py not present; skipping." > anomaly_dissector_report.txt
           fi
 
       - name: Execute Generator Comparison Benchmark
@@ -73,8 +69,7 @@ jobs:
             python voynich_generator_comparison.py > generator_comparison_report.txt
             cat generator_comparison_report.txt
           else
-            echo "[INFO] voynich_generator_comparison.py not present; skipping generator comparison." > generator_comparison_report.txt
-            cat generator_comparison_report.txt
+            echo "[INFO] voynich_generator_comparison.py not present; skipping." > generator_comparison_report.txt
           fi
 
       - name: Execute Closing Tests (Hybrid 2D, Length Conditioning & Gallows)
@@ -83,25 +78,23 @@ jobs:
             python voynich_closing_tests.py ZL3b-n.txt > closing_tests_report.txt
             cat closing_tests_report.txt
           else
-            echo "[INFO] voynich_closing_tests.py not present; skipping closing tests." > closing_tests_report.txt
-            cat closing_tests_report.txt
+            echo "[INFO] voynich_closing_tests.py not present; skipping." > closing_tests_report.txt
           fi
 
-      - name: Execute h2 Conditional Entropy & Empty Corner Benchmark (v3.1)
+      - name: Execute h2 & Empty-Corner Benchmark (v3.1)
         run: |
           if [ -f voynich_h2_empty_corner.py ]; then
-            python voynich_h2_empty_corner.py ZL3b-n.txt RF1b-e.txt > h2_empty_corner_report.txt
+            python voynich_h2_empty_corner.py ZL3b-n.txt > h2_empty_corner_report.txt
             cat h2_empty_corner_report.txt
           else
-            echo "[INFO] voynich_h2_empty_corner.py not present; skipping h2 empty corner benchmark." > h2_empty_corner_report.txt
-            cat h2_empty_corner_report.txt
+            echo "[INFO] voynich_h2_empty_corner.py not present; skipping." > h2_empty_corner_report.txt
           fi
 
       - name: Publish Reports to GitHub Step Summary
         if: always()
         run: |
           if [ -f h2_empty_corner_report.txt ]; then
-            echo "## Voynich h2 Conditional Entropy & Empty Corner Benchmark (v3.1)" >> $GITHUB_STEP_SUMMARY
+            echo "## Voynich v3.1 — Conditional Entropy (h2) & Empty-Corner Benchmark" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
             cat h2_empty_corner_report.txt >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
@@ -147,7 +140,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: voynich-pure-corpus-audit-report
+          name: voynich-pure-corpus-audit-report-v3.1
           path: |
             pure_corpus_audit_report.txt
             cipher_probes_report.txt
