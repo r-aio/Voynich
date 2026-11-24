@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   audit-pure-corpus:
-    name: Pure Corpus Audit, Probes, Dissector, Generators, Closing & h2 (v3.1)
+    name: Pure Corpus Audit, Probes, Dissector, Generators, h2 & v3.2 Head-to-Head
     runs-on: ubuntu-latest
 
     steps:
@@ -90,9 +90,24 @@ jobs:
             echo "[INFO] voynich_h2_empty_corner.py not present; skipping." > h2_empty_corner_report.txt
           fi
 
+      - name: Execute v3.2 Head-to-Head Benchmark (Held-Out vs. Workshop/Naibbe & Tachygraphy)
+        run: |
+          if [ -f voynich_v32_head_to_head.py ]; then
+            python voynich_v32_head_to_head.py ZL3b-n.txt > v32_head_to_head_report.txt
+            cat v32_head_to_head_report.txt
+          else
+            echo "[INFO] voynich_v32_head_to_head.py not present; skipping." > v32_head_to_head_report.txt
+          fi
+
       - name: Publish Reports to GitHub Step Summary
         if: always()
         run: |
+          if [ -f v32_head_to_head_report.txt ]; then
+            echo "## Voynich v3.2 — Held-Out Hybrids vs. Verbose Workshop & Tachygraphy" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat v32_head_to_head_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
           if [ -f h2_empty_corner_report.txt ]; then
             echo "## Voynich v3.1 — Conditional Entropy (h2) & Empty-Corner Benchmark" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
@@ -140,7 +155,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: voynich-pure-corpus-audit-report-v3.1
+          name: voynich-pure-corpus-audit-report-v3.2
           path: |
             pure_corpus_audit_report.txt
             cipher_probes_report.txt
@@ -149,5 +164,6 @@ jobs:
             generator_comparison_report.txt
             closing_tests_report.txt
             h2_empty_corner_report.txt
+            v32_head_to_head_report.txt
           if-no-files-found: warn
           retention-days: 90
