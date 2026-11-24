@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   audit-pure-corpus:
-    name: Pure Corpus Audit, Probes, Dissector & Generators (ZL3b-n.txt & RF1b-e.txt)
+    name: Pure Corpus Audit, Probes, Dissector, Generators & Closing Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -77,9 +77,25 @@ jobs:
             cat generator_comparison_report.txt
           fi
 
+      - name: Execute Closing Tests (Hybrid 2D Generator, Length Conditioning & Gallows)
+        run: |
+          if [ -f voynich_closing_tests.py ]; then
+            python voynich_closing_tests.py ZL3b-n.txt > closing_tests_report.txt
+            cat closing_tests_report.txt
+          else
+            echo "[INFO] voynich_closing_tests.py not present; skipping closing tests." > closing_tests_report.txt
+            cat closing_tests_report.txt
+          fi
+
       - name: Publish Reports to GitHub Step Summary
         if: always()
         run: |
+          if [ -f closing_tests_report.txt ]; then
+            echo "## Voynich Closing Tests (Hybrid 2D, Length Conditioning & Gallows)" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat closing_tests_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
           if [ -f generator_comparison_report.txt ]; then
             echo "## Voynich Generator Comparison Benchmark" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
@@ -122,5 +138,6 @@ jobs:
             deep_probes_report.txt
             anomaly_dissector_report.txt
             generator_comparison_report.txt
+            closing_tests_report.txt
           if-no-files-found: warn
           retention-days: 90
