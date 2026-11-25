@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   audit-pure-corpus:
-    name: Pure Corpus Audit, Probes, Dissector, Generators, h2, v3.2 & Archival v3.3
+    name: Pure Corpus Audit, Probes, Dissector, Generators, h2, v3.2, v3.3 & Tyrol v3.4
     runs-on: ubuntu-latest
 
     steps:
@@ -108,9 +108,24 @@ jobs:
             echo "[INFO] voynich_archival_and_syllabic_audit.py not present; skipping." > archival_syllabic_report.txt
           fi
 
+      - name: Execute Tyrol-Bavaria Balneological / Kunstbuch Audit (v3.4)
+        run: |
+          if [ -f voynich_tyrol_kyeser_audit.py ]; then
+            python voynich_tyrol_kyeser_audit.py ZL3b-n.txt > tyrol_kyeser_report.txt
+            cat tyrol_kyeser_report.txt
+          else
+            echo "[INFO] voynich_tyrol_kyeser_audit.py not present; skipping." > tyrol_kyeser_report.txt
+          fi
+
       - name: Publish Reports to GitHub Step Summary
         if: always()
         run: |
+          if [ -f tyrol_kyeser_report.txt ]; then
+            echo "## Voynich v3.4 — Tyrol-Bavaria Balneological / Kunstbuch Audit (1405-1445)" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat tyrol_kyeser_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
           if [ -f archival_syllabic_report.txt ]; then
             echo "## Voynich v3.3 — Archival Registry (1400-1450) & Milanese 1424 Syllabic Audit" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
@@ -170,7 +185,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: voynich-pure-corpus-audit-report-v3.3
+          name: voynich-pure-corpus-audit-report-v3.4
           path: |
             pure_corpus_audit_report.txt
             cipher_probes_report.txt
@@ -181,5 +196,6 @@ jobs:
             h2_empty_corner_report.txt
             heldout_workshop_report.txt
             archival_syllabic_report.txt
+            tyrol_kyeser_report.txt
           if-no-files-found: warn
           retention-days: 90
