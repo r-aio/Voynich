@@ -22,9 +22,8 @@ Modes:
 
 Evaluates:
   - Test V1: Do folio visual features predict label-only / unique-label vocabulary
-             better than within-quire shuffles (out-of-sample LOQO ridge/nearest-centroid)?
-  - Test V2: Do folio visual features predict residual UNKNOWN rate or section h2?
-  - Test V3: Within-quire vs. across-quire visual similarity vs. vocabulary Jaccard.
+             better than within-quire shuffles (out-of-sample LOQO nearest visual neighbor)?
+  - Test V2: Global visual feature distance vs. folio vocabulary Jaccard.
 """
 
 from __future__ import annotations
@@ -39,9 +38,9 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 
 @dataclass
@@ -57,7 +56,7 @@ class LineEntry:
 
 TOKEN_CLEAN_RE = re.compile(r"[^a-zA-Z0-9]+")
 FOLIO_HEADER_RE = re.compile(r"^#?\s*<(f[0-9]+[rv][0-9]*|fRos)>\s*<!(.*?)>", re.IGNORECASE)
-LOCUS_RE = re.compile(r"^<(f[0-9]+[rv][0-9]*|fRos)\.([^>\s]+)>\s*(.*)$", re.IGNORECASE)
+LOCUS_RE = re.compile(r"^<(f[0-9]+[rv][0-9]*|fRos)\.([^>]+)>\s*(.*)$", re.IGNORECASE)
 
 
 def tokenize_ivtff_body(body: str) -> List[str]:
@@ -73,6 +72,22 @@ def tokenize_ivtff_body(body: str) -> List[str]:
         if cleaned:
             out.append(cleaned)
     return out
+
+
+def is_label_locus(loc_id: str, body: str, toks: List[str]) -> bool:
+    """
+    Detects IVTFF label / caption / diagram-tag lines across ZL3b-n conventions:
+      - Explicit IVTFF locus codes or body tags containing L / @L / *L,
+      - Isolated short lines (1-2 tokens) not tagged as standard prose (+P0).
+    """
+    u = loc_id.upper()
+    if re.search(r"(?:^|[,;:@*+])L[0-9A-Z]*", u):
+        return True
+    if ("@L" in body.upper() or "*L" in body.upper()) and len(toks) <= 3:
+        return True
+    if len(toks) <= 2 and "+P0" not in u:
+        return True
+    return False
 
 
 def parse_ivtff(filepath: str) -> List[LineEntry]:
@@ -117,7 +132,7 @@ def parse_ivtff(filepath: str) -> List[LineEntry]:
             if l_ov:
                 currier = l_ov.group(1)
             toks = tokenize_ivtff_body(body)
-            is_lbl = loc_id.upper().startswith("L") or (len(toks) <= 2 and loc_id.upper().startswith(("R", "C", "T", "P")))
+            is_lbl = is_label_locus(loc_id, body, toks)
             if toks:
                 entries.append(LineEntry(fid, f"{fid}.{loc_id}", quire, section, currier, is_lbl, toks))
     return entries
@@ -170,7 +185,6 @@ def build_visual_feature_vectors(
             sec_blue.get(sec, 0.25),
         ]
 
-    # Z-score standardize each dimension across folios
     vecs: Dict[str, List[float]] = {f: [0.0] * 4 for f in folio_order}
     for d in range(4):
         vals = [raw_vecs[f][d] for f in folio_order]
@@ -200,7 +214,7 @@ def main() -> None:
     print("VOYNICH v3.5 — IIIF VISUAL-TO-GLYPH STRUCTURAL AUDIT (NO SEMANTIC LABELS)")
     print("==========================================================================\n")
 
-    status_msg, n_canv = probe_beinecke_manifest(timeout=2.5)
+    status_msg, _ = probe_beinecke_manifest(timeout=2.5)
     print(f"Yale Beinecke IIIF Manifest Probe : {status_msg}\n")
 
     entries = parse_ivtff(zl_path)
@@ -221,20 +235,17 @@ def main() -> None:
 
     vecs = build_visual_feature_vectors(folio_order, folio_lines, folio_section)
 
-    # Test V1: Leave-One-Quire-Out nearest-visual-neighbor label-vocabulary Jaccard
-    # vs. within-quire random neighbor baseline (1,000 permutations)
-    quires = sorted(set(folio_quire.values()))
     by_quire: Dict[str, List[str]] = defaultdict(list)
     for f in folio_order:
         by_quire[folio_quire[f]].append(f)
 
     label_sets = {f: set(folio_label_toks[f]) for f in folio_order}
-    qual_folios = [f for f in folio_order if len(label_sets[f]) >= 2 and len(by_quire[folio_quire[f]]) >= 2]
+    qual_folios = [f for f in folio_order if len(label_sets[f]) >= 1 and len(by_quire[folio_quire[f]]) >= 2]
 
     obs_jacc_scores: List[float] = []
     for f in qual_folios:
         q = folio_quire[f]
-        peers = [p for p in by_quire[q] if p != f and len(label_sets[p]) >= 2]
+        peers = [p for p in by_quire[q] if p != f and len(label_sets[p]) >= 1]
         if not peers:
             continue
         best_p = min(peers, key=lambda p: euclid_dist(vecs[f], vecs[p]))
@@ -248,7 +259,7 @@ def main() -> None:
         trial_scores: List[float] = []
         for f in qual_folios:
             q = folio_quire[f]
-            peers = [p for p in by_quire[q] if p != f and len(label_sets[p]) >= 2]
+            peers = [p for p in by_quire[q] if p != f and len(label_sets[p]) >= 1]
             if not peers:
                 continue
             rand_p = rng.choice(peers)
@@ -260,13 +271,16 @@ def main() -> None:
     z_v1 = (obs_mean_jacc - null_mu) / null_sd if null_sd > 1e-9 else 0.0
     p_v1 = (sum(1 for x in null_means if x >= obs_mean_jacc) + 1) / (len(null_means) + 1)
 
+    total_label_tokens = sum(len(v) for v in folio_label_toks.values())
+    folios_with_labels = sum(1 for v in folio_label_toks.values() if v)
+
     print("=== TEST V1: WITHIN-QUIRE VISUAL-NEIGHBOR VS. RANDOM LABEL JACCARD (1,000 MC) ===")
-    print(f"  Qualifying folios (>=2 label types & >=2 quire peers) : {len(qual_folios)}")
+    print(f"  Label lines/tokens detected (folios with labels)     : {total_label_tokens} ({folios_with_labels} folios)")
+    print(f"  Qualifying folios (>=1 label type & >=2 quire peers) : {len(qual_folios)}")
     print(f"  Nearest Visual Neighbor Mean Label Jaccard            : {obs_mean_jacc:.4f}")
     print(f"  Within-Quire Random Peer Null Mean                    : {null_mu:.4f} (SD = {null_sd:.4f})")
     print(f"  Lift: {obs_mean_jacc - null_mu:+.4f} | Z = {z_v1:+.2f} | p = {p_v1:.4f}\n")
 
-    # Test V2: Visual feature distance vs. vocabulary Jaccard across all folio pairs
     vis_dists: List[float] = []
     full_jaccs: List[float] = []
     full_sets = {f: {t for ln in folio_lines[f] for t in ln} for f in folio_order}
